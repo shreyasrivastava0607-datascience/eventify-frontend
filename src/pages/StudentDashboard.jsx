@@ -11,7 +11,6 @@ const api = axios.create({ baseURL: 'https://eventify-backend-jm6t.onrender.com'
 const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('eventify_token')}` } });
 
 /* ── HELPERS ── */
-// Safely normalise a registration link to an absolute URL
 function safeLink(raw) {
   if (!raw) return null;
   const trimmed = raw.trim();
@@ -21,22 +20,15 @@ function safeLink(raw) {
     : `https://${trimmed}`;
 }
 
-// Smart Clash: check if event matches student profile
-// targetDepartments: string[]  e.g. ['CSE', 'ECE']
-// targetYears: number[]        e.g. [1, 2, 3]
-// student.department: string
-// student.year: number | string
 function eventMatchesStudent(ev, student) {
   const studentYear = Number(student.year);
   const studentDept = student.department;
 
-  // Department check — event must include student's exact dept
   const deptMatch =
     Array.isArray(ev.targetDepartments) &&
     ev.targetDepartments.length > 0 &&
     ev.targetDepartments.includes(studentDept);
 
-  // Year check — event must include student's year (compare as numbers)
   const yearMatch =
     Array.isArray(ev.targetYears) &&
     ev.targetYears.length > 0 &&
@@ -99,28 +91,46 @@ function RegisterModal({ event, onClose, onSuccess, user }) {
 
   const handleRegister = async () => {
     setLoading(true);
+
+    /*
+     * FIX: window.open() called AFTER an await is treated as a popup by browsers
+     * and gets blocked. The solution is to open the window SYNCHRONOUSLY before
+     * the async work begins, then set its location once we know the URL — or
+     * simply open a blank tab first and assign the href after the API call.
+     *
+     * We open the tab immediately (synchronous, so no popup blocker triggers),
+     * then either navigate it to the real URL on success or close it on failure.
+     */
+    let newTab = null;
+    if (regLink) {
+      newTab = window.open('', '_blank', 'noopener,noreferrer');
+    }
+
     try {
-      // 1. Record RSVP in backend
       await api.post(
         `/api/events/${event._id}/register`,
         { name: user.name, rollNumber: user.rollNumber },
         getAuthHeader()
       );
-      // 2. Notify parent to mark as registered
+
       onSuccess && onSuccess(event._id);
       setDone(true);
-      // 3. Open external Google Form / registration link (if provided)
-      if (regLink) {
-        window.open(regLink, '_blank', 'noopener,noreferrer');
+
+      // Navigate the already-open tab to the real URL
+      if (newTab && regLink) {
+        newTab.location.href = regLink;
       }
     } catch (err) {
       const msg = (err.response?.data?.message || '').toLowerCase();
       if (msg.includes('already')) {
-        // Already registered — still open the link
         onSuccess && onSuccess(event._id);
         setDone(true);
-        if (regLink) window.open(regLink, '_blank', 'noopener,noreferrer');
+        if (newTab && regLink) {
+          newTab.location.href = regLink;
+        }
       } else {
+        // Close the blank tab since registration failed
+        if (newTab) newTab.close();
         alert('Registration failed. Please try again.');
       }
     } finally {
@@ -231,7 +241,6 @@ export default function StudentDashboard() {
   let user = {};
   try { user = JSON.parse(localStorage.getItem('eventify_user') || '{}'); } catch { user = {}; }
 
-  // Guard: redirect to change-password if first login
   useEffect(() => {
     if (user.isFirstLogin === true || user.mustChangePassword === true) {
       navigate('/change-password', {
@@ -241,7 +250,6 @@ export default function StudentDashboard() {
     }
   }, []);
 
-  // Auto-update past events' status silently
   const autoUpdateStatuses = useCallback(async (allEvents) => {
     const now = new Date();
     const toUpdate = allEvents.filter(ev => {
@@ -262,17 +270,13 @@ export default function StudentDashboard() {
       .then(r => {
         const all = r.data.data || r.data;
 
-        // Fire-and-forget status updates
         autoUpdateStatuses(all);
 
-        // ── SMART CLASH FILTER ──
-        // Only show upcoming events that match the student's dept AND year exactly
         const upcoming = all.filter(ev => {
           if (ev.status !== 'upcoming') return false;
           return eventMatchesStudent(ev, user);
         });
 
-        // Track registrations
         const myIds = new Set();
         all.forEach(ev => {
           const found = (ev.registeredStudents || []).some(
@@ -286,7 +290,6 @@ export default function StudentDashboard() {
         setPast(all.filter(e => e.status === 'completed'));
       })
       .catch(() => {
-        // Token may be expired
         localStorage.clear();
         navigate('/login', { replace: true });
       })
@@ -370,7 +373,6 @@ export default function StudentDashboard() {
             Your Events
           </h2>
           <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-            {/* Search */}
             <div className="relative flex-1 md:w-72">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-300" />
               <input
@@ -380,7 +382,6 @@ export default function StudentDashboard() {
                 className="w-full pl-11 pr-5 py-4 rounded-2xl border border-stone-200 bg-white text-sm font-bold outline-none focus:ring-4 focus:ring-blue-900/5 transition-all shadow-sm"
               />
             </div>
-            {/* Filter pills */}
             <div className="flex gap-2 p-1.5 bg-white rounded-3xl border border-stone-200 shadow-sm">
               {['All', 'Tech Event', 'Cultural Event'].map(f => (
                 <button
@@ -400,7 +401,6 @@ export default function StudentDashboard() {
           <div className="py-40 text-center"><Loader2 className="animate-spin mx-auto w-12 h-12 text-blue-900" /></div>
         ) : (
           <>
-            {/* EVENT GRID */}
             {filtered.length === 0 ? (
               <div className="text-center py-32 text-stone-400">
                 <CalendarDays className="w-16 h-16 mx-auto mb-4 opacity-20" />
@@ -420,7 +420,6 @@ export default function StudentDashboard() {
 
                   return (
                     <div key={ev._id} className="bg-white rounded-[48px] border border-stone-200 shadow-sm overflow-hidden flex flex-col hover:shadow-2xl hover:-translate-y-2 transition-all duration-700 group">
-                      {/* Banner / Brochure Image */}
                       {actualImage ? (
                         <img
                           src={actualImage}
@@ -435,7 +434,6 @@ export default function StudentDashboard() {
                       )}
 
                       <div className="p-10 flex flex-col flex-1">
-                        {/* Event type badge */}
                         <div className="flex items-center gap-2 mb-4">
                           {ev.eventType === 'Tech Event'
                             ? <Cpu className="w-4 h-4 text-blue-600" />
@@ -466,7 +464,6 @@ export default function StudentDashboard() {
                               <Clock className="w-4 h-4 flex-shrink-0" /> {ev.time}
                             </div>
                           )}
-                          {/* Show registration link chip */}
                           {regLink && (
                             <div className="flex items-center gap-2 text-blue-500 text-xs font-bold">
                               <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
@@ -475,13 +472,11 @@ export default function StudentDashboard() {
                           )}
                         </div>
 
-                        {/* CTA Button */}
                         {isRegistered ? (
                           <div className="space-y-3">
                             <div className="w-full py-5 rounded-[24px] bg-emerald-50 border-2 border-emerald-200 text-emerald-600 font-black text-[11px] tracking-[0.2em] uppercase flex items-center justify-center gap-2">
                               <CheckCircle2 className="w-4 h-4" /> Registered
                             </div>
-                            {/* Still allow re-opening Google Form after registration */}
                             {regLink && (
                               <a
                                 href={regLink}
@@ -510,7 +505,6 @@ export default function StudentDashboard() {
               </div>
             )}
 
-            {/* PAST EVENTS / MEMORIES */}
             {past.length > 0 && (
               <>
                 <h2 className="text-2xl font-bold text-stone-900 mb-8" style={{ fontFamily: '"Playfair Display", serif' }}>
