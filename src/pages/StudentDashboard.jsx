@@ -7,8 +7,14 @@ import {
   ExternalLink, GraduationCap, Menu, Sparkles, Cpu, Music2
 } from 'lucide-react';
 
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000' });
-const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('eventify_token')}` } });
+// ─── THE FIX: Pointing to your live Render Backend ───────────────────────────
+const api = axios.create({ 
+  baseURL: import.meta.env.VITE_API_URL || 'https://eventify-backend-jm6t.onrender.com' 
+});
+
+const getAuthHeader = () => ({ 
+  headers: { Authorization: `Bearer ${localStorage.getItem('eventify_token')}` } 
+});
 
 /* ── Toast ── */
 function Toast({ toast, onClose }) {
@@ -82,7 +88,6 @@ function UpcomingCard({ event }) {
 
   return (
     <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 flex flex-col">
-      {/* Brochure image if available */}
       {event.brochureURL && (
         <div className="h-40 overflow-hidden">
           <img src={event.brochureURL} alt={event.title}
@@ -91,7 +96,6 @@ function UpcomingCard({ event }) {
         </div>
       )}
 
-      {/* Date banner */}
       <div className="px-5 py-4 flex items-center justify-between"
         style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #162d4a 100%)' }}>
         <div className="flex items-center gap-3">
@@ -130,17 +134,6 @@ function UpcomingCard({ event }) {
             </div>
           )}
         </div>
-
-        {event.targetDepartments?.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-4">
-            {event.targetDepartments.slice(0, 4).map(d => (
-              <span key={d} className="bg-blue-50 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full border border-blue-100">{d}</span>
-            ))}
-            {event.targetDepartments.length > 4 && (
-              <span className="bg-stone-100 text-stone-500 text-xs px-2 py-0.5 rounded-full">+{event.targetDepartments.length - 4}</span>
-            )}
-          </div>
-        )}
 
         <div className="mt-auto">
           {hasRegLink ? (
@@ -233,7 +226,7 @@ export default function StudentDashboard() {
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
-  const filteredUpcoming = filter === 'All' ? upcoming : upcoming.filter(e => e.eventType === filter);
+  const filteredUpcoming = filter === 'All' ? upcoming : upcoming.filter(e => e.eventType === f);
   const handleLogout = () => { localStorage.clear(); navigate('/login'); };
 
   return (
@@ -315,7 +308,6 @@ export default function StudentDashboard() {
                       style={{ background: 'linear-gradient(135deg, #1e3a5f, #162d4a)' }}>{upcoming.length}</span>
                   )}
                 </div>
-                {/* Filter tabs */}
                 <div className="flex gap-2">
                   {['All', 'Tech Event', 'Cultural Event'].map(f => (
                     <button key={f} onClick={() => setFilter(f)}
