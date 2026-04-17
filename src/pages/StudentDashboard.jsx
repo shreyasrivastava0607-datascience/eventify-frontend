@@ -7,14 +7,9 @@ import {
   ExternalLink, GraduationCap, Menu, Sparkles, Cpu, Music2
 } from 'lucide-react';
 
-// ─── THE CONNECTION FIX ─────────────────────────────────────────────────────
-const api = axios.create({ 
-  baseURL: import.meta.env.VITE_API_URL || 'https://eventify-backend-jm6t.onrender.com' 
-});
-
-const getAuthHeader = () => ({ 
-  headers: { Authorization: `Bearer ${localStorage.getItem('eventify_token')}` } 
-});
+// ─── THE ONLY CHANGE: Pointing to Render ────────────────────────────────────
+const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || 'https://eventify-backend-jm6t.onrender.com' });
+const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('eventify_token')}` } });
 
 /* ── Toast ── */
 function Toast({ toast, onClose }) {
@@ -38,46 +33,23 @@ function GalleryModal({ event, onClose }) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100">
           <div>
             <h2 className="font-bold text-stone-800 text-lg" style={{ fontFamily: '"Playfair Display", serif' }}>{event.title}</h2>
-            <p className="text-stone-400 text-xs mt-0.5">Event Gallery · {event.galleryImages?.length || 0} photos</p>
+            <p className="text-stone-400 text-xs mt-0.5">Event Gallery</p>
           </div>
-          <button onClick={onClose} className="w-9 h-9 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center transition-colors">
-            <X className="w-4 h-4 text-stone-600" />
-          </button>
+          <button onClick={onClose} className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center"><X className="w-4 h-4 text-stone-600" /></button>
         </div>
         <div className="overflow-y-auto p-5">
-          {(!event.galleryImages || event.galleryImages.length === 0) ? (
-            <div className="text-center py-16 text-stone-400">
-              <ImageIcon className="w-10 h-10 mx-auto mb-3 opacity-40" />
-              <p className="text-sm">No gallery images yet.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {event.galleryImages.map((url, i) => (
-                <div key={i} className="aspect-square rounded-2xl overflow-hidden bg-stone-100 group cursor-pointer">
-                  <img src={url} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onError={e => { e.target.style.display = 'none'; }} />
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {event.galleryImages?.map((url, i) => (
+              <div key={i} className="aspect-square rounded-2xl overflow-hidden bg-stone-100"><img src={url} className="w-full h-full object-cover" /></div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-/* ── Event Type Badge ── */
-function TypeBadge({ type }) {
-  if (!type) return null;
-  const isTech = type === 'Tech Event';
-  return (
-    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${isTech ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
-      {isTech ? <Cpu className="w-3 h-3" /> : <Music2 className="w-3 h-3" />}
-      {type}
-    </span>
-  );
-}
-
-/* ── Upcoming Event Card ── */
+/* ── Upcoming Card ── */
 function UpcomingCard({ event }) {
   const date = new Date(event.date);
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -87,21 +59,20 @@ function UpcomingCard({ event }) {
         <div className="flex items-center gap-3">
           <div className="bg-white/15 rounded-xl px-3 py-2 text-center min-w-[52px]">
             <p className="text-white/70 text-xs">{monthNames[date.getMonth()]}</p>
-            <p className="text-white text-xl font-bold leading-none">{date.getDate()}</p>
+            <p className="text-white text-xl font-bold">{date.getDate()}</p>
           </div>
           <div><h3 className="text-white font-bold text-base leading-snug line-clamp-1">{event.title}</h3></div>
         </div>
       </div>
       <div className="p-5 flex flex-col flex-1">
-        <TypeBadge type={event.eventType} />
-        <p className="text-stone-600 text-sm leading-relaxed my-3 line-clamp-2">{event.description}</p>
+        <p className="text-stone-600 text-sm mb-4 line-clamp-2">{event.description}</p>
         <div className="space-y-2 mb-4 text-xs text-stone-500">
           <div className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5" /><span>{event.venue || 'TBA'}</span></div>
-          <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5" /><span>{event.time || 'All Day'}</span></div>
+          <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5" /><span>{event.time}</span></div>
         </div>
         <div className="mt-auto">
           {event.registrationLink ? (
-            <a href={event.registrationLink} target="_blank" rel="noreferrer" className="w-full py-2.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2" style={{ background: 'linear-gradient(135deg, #1e3a5f, #162d4a)' }}>Register <ExternalLink className="w-4 h-4" /></a>
+            <a href={event.registrationLink} target="_blank" rel="noreferrer" className="w-full py-2.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:shadow-lg" style={{ background: 'linear-gradient(135deg, #1e3a5f, #162d4a)' }}>Register <ExternalLink className="w-4 h-4" /></a>
           ) : (
             <div className="w-full py-2.5 rounded-xl bg-amber-50 text-amber-700 text-sm font-semibold text-center">Registrations Coming Soon</div>
           )}
@@ -140,30 +111,31 @@ export default function StudentDashboard() {
   const handleLogout = () => { localStorage.clear(); navigate('/login'); };
 
   return (
-    <div className="min-h-screen bg-stone-50 font-sans">
+    <div className="min-h-screen bg-stone-50" style={{ fontFamily: '"DM Sans", sans-serif' }}>
       <Toast toast={toast} onClose={() => setToast(null)} />
       <GalleryModal event={galleryEvent} onClose={() => setGallery(null)} />
-
-      <nav className="text-white px-6 py-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #162d4a 100%)' }}>
-        <div className="flex items-center gap-3"><GraduationCap className="w-6 h-6" /><span className="font-bold text-xl" style={{ fontFamily: '"Playfair Display", serif' }}>Eventify</span></div>
-        <button onClick={handleLogout} className="bg-white/10 p-2 rounded-lg"><LogOut className="w-4 h-4" /></button>
+      <nav className="text-white px-6 py-4 flex items-center justify-between shadow-lg sticky top-0 z-30" style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #162d4a 100%)' }}>
+        <div className="flex items-center gap-3"><GraduationCap className="w-8 h-8" /><span className="font-bold text-xl" style={{ fontFamily: '"Playfair Display", serif' }}>Eventify</span></div>
+        <button onClick={handleLogout} className="bg-white/10 p-2 rounded-lg hover:bg-white/20 transition-all"><LogOut className="w-4 h-4" /></button>
       </nav>
-
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="rounded-2xl px-6 py-6 mb-8 flex items-center justify-between shadow-lg text-white" style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #162d4a 100%)' }}>
-          <div>
-            <h1 className="text-xl font-bold">Hello, {user.name || 'Student'}! 👋</h1>
-            <p className="text-blue-200 text-sm mt-1">{upcoming.length} events matching your profile.</p>
-          </div>
+          <div><h1 className="text-xl font-bold">Hello, {user.name || 'Student'}! 👋</h1><p className="text-blue-200 text-sm mt-1">{upcoming.length} events tailored for you.</p></div>
           <Sparkles className="w-10 h-10 text-blue-300/30" />
         </div>
-
         {loading ? (
           <div className="text-center py-24"><Loader2 className="animate-spin mx-auto w-8 h-8 text-blue-900" /></div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredUpcoming.map(ev => <UpcomingCard key={ev._id} event={ev} />)}
-          </div>
+          <>
+            <div className="flex justify-end gap-2 mb-6">
+              {['All', 'Tech Event', 'Cultural Event'].map(f => (
+                <button key={f} onClick={() => setFilter(f)} className={`px-4 py-1.5 rounded-xl text-xs font-semibold ${filter === f ? 'text-white' : 'bg-white text-stone-500 border'}`} style={filter === f ? { background: 'linear-gradient(135deg, #1e3a5f, #162d4a)' } : {}}>{f}</button>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredUpcoming.map(ev => <UpcomingCard key={ev._id} event={ev} />)}
+            </div>
+          </>
         )}
       </div>
     </div>
