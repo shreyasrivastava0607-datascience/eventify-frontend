@@ -4,139 +4,134 @@ import axios from 'axios';
 import { 
   CalendarDays, MapPin, Clock, LogOut, Loader2, 
   ExternalLink, GraduationCap, Sparkles, Image as ImageIcon,
-  Cpu, Music2 
+  Cpu, Music2, ShieldCheck, X
 } from 'lucide-react';
 
-// ─── THE LIVE CONNECTION ──────────────────────────────────────────────────
-const api = axios.create({ 
-  baseURL: import.meta.env.VITE_API_URL || 'https://eventify-backend-jm6t.onrender.com' 
-});
+const api = axios.create({ baseURL: 'https://eventify-backend-jm6t.onrender.com' });
+const getAuthHeader = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('eventify_token')}` } });
 
-const getAuthHeader = () => ({ 
-  headers: { Authorization: `Bearer ${localStorage.getItem('eventify_token')}` } 
-});
+/* ── Gallery Modal ── */
+function GalleryModal({ event, onClose }) {
+  if (!event) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onClick={onClose}>
+      <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-10 py-6 border-b border-stone-100">
+          <div><h2 className="font-bold text-stone-900 text-xl" style={{ fontFamily: '"Playfair Display", serif' }}>{event.title}</h2><p className="text-stone-400 text-[10px] font-black uppercase tracking-widest mt-1">Event Gallery</p></div>
+          <button onClick={onClose} className="w-12 h-12 rounded-2xl bg-stone-50 hover:bg-stone-100 flex items-center justify-center transition-all"><X className="w-6 h-6 text-stone-500" /></button>
+        </div>
+        <div className="overflow-y-auto p-10">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {event.galleryImages?.map((url, i) => (
+              <div key={i} className="aspect-square rounded-[32px] overflow-hidden bg-stone-100 border border-stone-200"><img src={url} className="w-full h-full object-cover" alt="Memory" /></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function StudentDashboard() {
   const navigate = useNavigate();
-  const [upcoming, setUpcoming] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [past, setPast] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [gallery, setGallery] = useState(null);
   const [filter, setFilter] = useState('All');
   const user = JSON.parse(localStorage.getItem('eventify_user') || '{}');
 
-  const fetchEvents = useCallback(async () => {
-    try {
-      const { data } = await api.get('/api/events', getAuthHeader());
-      const all = data.data || data;
-      // Only show events marked as "upcoming"
-      setUpcoming(all.filter(e => e.status === 'upcoming'));
-    } catch (err) {
-      console.error("Fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+  useEffect(() => {
+    api.get('/api/events', getAuthHeader())
+      .then(r => {
+        const all = r.data.data || r.data;
+        
+        // ─── THE SMART CLASH LOGIC ──────────────────────────────────────────
+        const eligible = all.filter(ev => {
+          const isUpcoming = ev.status === 'upcoming';
+          const deptMatch = ev.targetDepartments?.includes(user.department) || ev.targetDepartments?.includes('Other');
+          const yearMatch = ev.targetYears?.includes(Number(user.year));
+          return isUpcoming && deptMatch && yearMatch;
+        });
+        
+        setEvents(eligible);
+        setPast(all.filter(e => e.status === 'completed'));
+      })
+      .finally(() => setLoading(false));
+  }, [user.department, user.year]);
 
   const handleRegister = (link) => {
     if (!link) return;
     window.open(link, '_blank');
-    alert("Redirecting to Registration Form... Registered Successfully!");
+    alert("Smart Clash System: Eligibility Verified. Registered Successfully!");
   };
 
-  const filteredEvents = filter === 'All' ? upcoming : upcoming.filter(e => e.eventType === filter);
-
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/login');
-  };
+  const filtered = filter === 'All' ? events : events.filter(e => e.eventType === filter);
 
   return (
     <div className="min-h-screen bg-[#f8f7f4] font-sans pb-20">
-      {/* Navbar */}
-      <nav className="text-white px-8 py-5 flex items-center justify-between shadow-2xl sticky top-0 z-30" 
-        style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #162d4a 100%)' }}>
-        <div className="flex items-center gap-3">
-          <GraduationCap className="w-8 h-8" />
-          <span className="font-bold text-xl tracking-tighter" style={{ fontFamily: '"Playfair Display", serif' }}>Eventify</span>
-        </div>
-        <button onClick={handleLogout} className="bg-white/10 hover:bg-white/20 p-3 rounded-2xl transition-all">
-          <LogOut className="w-5 h-5" />
-        </button>
+      <GalleryModal event={gallery} onClose={() => setGallery(null)} />
+      <nav className="text-white px-8 py-5 flex items-center justify-between shadow-2xl sticky top-0 z-30" style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #162d4a 100%)' }}>
+        <div className="flex items-center gap-3"><GraduationCap className="w-8 h-8" /><span className="font-bold text-xl tracking-tighter" style={{ fontFamily: '"Playfair Display", serif' }}>Eventify</span></div>
+        <button onClick={() => { localStorage.clear(); navigate('/login'); }} className="bg-white/10 p-3 rounded-2xl"><LogOut className="w-5 h-5" /></button>
       </nav>
 
       <div className="max-w-6xl mx-auto px-6 mt-10">
-        {/* Hero Section */}
-        <div className="rounded-[40px] p-10 mb-10 flex justify-between items-center text-white shadow-2xl relative overflow-hidden" 
-          style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #162d4a 100%)' }}>
+        <div className="rounded-[48px] p-12 mb-12 flex justify-between items-center text-white shadow-2xl relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #162d4a 100%)' }}>
           <div className="relative z-10">
-            <h1 className="text-4xl font-bold tracking-tight" style={{ fontFamily: '"Playfair Display", serif' }}>Hello, {user.name}! 👋</h1>
-            <p className="text-blue-200 text-lg mt-3 font-medium opacity-90">{upcoming.length} events tailored for your profile.</p>
+            <h1 className="text-4xl font-bold tracking-tight" style={{ fontFamily: '"Playfair Display", serif' }}>Hello, {user.name}!</h1>
+            <p className="text-blue-200 text-lg mt-3 font-medium opacity-90">Smart Clash has found {events.length} eligible events for you.</p>
             <div className="flex gap-3 mt-6">
-              <span className="bg-white/15 px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/10">{user.department}</span>
-              <span className="bg-white/15 px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/10">Year {user.year}</span>
+              <span className="bg-emerald-500/20 text-emerald-300 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-500/30 flex items-center gap-2"><ShieldCheck className="w-3 h-3"/> {user.department} Verified</span>
+              <span className="bg-blue-500/20 text-blue-300 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-500/30">Year {user.year}</span>
             </div>
           </div>
           <Sparkles className="w-32 h-32 text-blue-300/10 absolute -right-6 -bottom-6 rotate-12" />
         </div>
 
-        {/* Filters */}
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-bold text-stone-900" style={{ fontFamily: '"Playfair Display", serif' }}>Explore Events</h2>
-          <div className="flex gap-2 p-1 bg-white rounded-2xl border border-stone-200 shadow-sm">
-            {['All', 'Tech Event', 'Cultural Event'].map(f => (
-              <button key={f} onClick={() => setFilter(f)} 
-                className={`px-5 py-2 rounded-xl text-[10px] font-black transition-all uppercase tracking-widest ${filter === f ? 'text-white' : 'text-stone-400'}`}
-                style={filter === f ? { background: 'linear-gradient(135deg, #1e3a5f, #162d4a)' } : {}}>{f}</button>
-            ))}
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="py-40 text-center"><Loader2 className="animate-spin mx-auto w-10 h-10 text-blue-900" /></div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredEvents.map(ev => (
-              <div key={ev._id} className="bg-white rounded-[40px] border border-stone-200 shadow-sm overflow-hidden flex flex-col hover:shadow-2xl hover:-translate-y-2 transition-all duration-500">
-                
-                {/* ── BROCHURE IMAGE RESTORED ── */}
-                {ev.brochureURL ? (
-                  <img src={ev.brochureURL} alt="Event Brochure" className="w-full h-52 object-cover border-b border-stone-50" />
-                ) : (
-                  <div className="w-full h-52 bg-stone-50 flex items-center justify-center text-stone-200">
-                    <ImageIcon className="w-12 h-12" />
-                  </div>
-                )}
-
-                <div className="p-8 flex flex-col flex-1">
-                  <div className="flex items-center gap-2 mb-4">
-                    {ev.eventType === 'Tech Event' ? <Cpu className="w-4 h-4 text-blue-600" /> : <Music2 className="w-4 h-4 text-amber-600" />}
-                    <span className="text-[10px] font-black uppercase tracking-tighter text-stone-400">{ev.eventType}</span>
-                  </div>
-                  <h3 className="font-bold text-stone-900 text-xl mb-3 leading-tight" style={{ fontFamily: '"Playfair Display", serif' }}>{ev.title}</h3>
-                  <p className="text-sm text-stone-500 line-clamp-3 mb-8 leading-relaxed font-medium italic">"{ev.description}"</p>
-                  
-                  <div className="mt-auto pt-6 border-t border-stone-50 space-y-3 mb-8">
-                    <div className="flex items-center gap-3 text-stone-400 text-xs font-bold"><CalendarDays className="w-4 h-4 text-blue-900/30" /> {new Date(ev.date).toDateString()}</div>
-                    <div className="flex items-center gap-3 text-stone-400 text-xs font-bold"><MapPin className="w-4 h-4 text-blue-900/30" /> {ev.venue}</div>
-                  </div>
-
-                  {/* ── REGISTRATION BUTTON FIXED ── */}
-                  {ev.registrationLink ? (
-                    <button 
-                      onClick={() => handleRegister(ev.registrationLink)}
-                      className="w-full py-4 rounded-2xl text-white font-black text-[11px] tracking-widest text-center shadow-lg transition-all hover:brightness-110 active:scale-95 flex items-center justify-center gap-2"
-                      style={{ background: 'linear-gradient(135deg, #1e3a5f, #162d4a)' }}
-                    >
-                      REGISTER FOR EVENT <ExternalLink className="w-4 h-4" />
-                    </button>
-                  ) : (
-                    <div className="w-full py-4 bg-stone-100 text-stone-300 rounded-2xl text-center text-[10px] font-black uppercase tracking-widest">Registrations Pending</div>
-                  )}
-                </div>
+        {loading ? <div className="py-40 text-center"><Loader2 className="animate-spin mx-auto w-10 h-10 text-blue-900" /></div> : (
+          <>
+            <div className="flex justify-between items-center mb-10">
+              <h2 className="text-2xl font-bold text-stone-900" style={{ fontFamily: '"Playfair Display", serif' }}>Tailored Events</h2>
+              <div className="flex gap-2 p-1.5 bg-white rounded-2xl border border-stone-200">
+                {['All', 'Tech Event', 'Cultural Event'].map(f => (
+                  <button key={f} onClick={() => setFilter(f)} className={`px-5 py-2 rounded-xl text-[10px] font-black transition-all uppercase tracking-widest ${filter === f ? 'text-white shadow-md' : 'text-stone-400'}`} style={filter === f ? { background: 'linear-gradient(135deg, #1e3a5f, #162d4a)' } : {}}>{f}</button>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-24">
+              {filtered.map(ev => (
+                <div key={ev._id} className="bg-white rounded-[48px] border border-stone-200 shadow-sm overflow-hidden flex flex-col hover:shadow-2xl hover:-translate-y-2 transition-all duration-500">
+                  {ev.brochureURL ? <img src={ev.brochureURL} className="w-full h-52 object-cover border-b" alt="Poster" /> : <div className="w-full h-52 bg-stone-50 flex items-center justify-center text-stone-200"><ImageIcon className="w-12 h-12" /></div>}
+                  <div className="p-8 flex flex-col flex-1">
+                    <div className="flex items-center gap-2 mb-4">
+                      {ev.eventType === 'Tech Event' ? <Cpu className="w-4 h-4 text-blue-600" /> : <Music2 className="w-4 h-4 text-amber-600" />}
+                      <span className="text-[10px] font-black uppercase text-stone-400 tracking-widest">{ev.eventType}</span>
+                    </div>
+                    <h3 className="font-bold text-stone-900 text-2xl mb-3 leading-tight" style={{ fontFamily: '"Playfair Display", serif' }}>{ev.title}</h3>
+                    <p className="text-sm text-stone-500 line-clamp-3 mb-8 leading-relaxed font-medium italic">"{ev.description}"</p>
+                    <div className="mt-auto pt-6 border-t border-stone-50 space-y-3 mb-8">
+                      <div className="flex items-center gap-3 text-stone-400 text-xs font-bold"><CalendarDays className="w-4 h-4" /> {new Date(ev.date).toDateString()}</div>
+                      <div className="flex items-center gap-3 text-stone-400 text-xs font-bold"><MapPin className="w-4 h-4" /> {ev.venue}</div>
+                    </div>
+                    <button onClick={() => handleRegister(ev.registrationLink)} className="w-full py-4 rounded-3xl text-white font-black text-[11px] tracking-widest shadow-lg uppercase" style={{ background: 'linear-gradient(135deg, #1e3a5f, #162d4a)' }}>Register Now</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <h2 className="text-2xl font-bold text-stone-900 mb-8" style={{ fontFamily: '"Playfair Display", serif' }}>Memories</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+              {past.map(ev => (
+                <div key={ev._id} onClick={() => setGallery(ev)} className="bg-white p-6 rounded-[32px] border border-stone-200 shadow-sm hover:shadow-xl cursor-pointer transition-all text-center">
+                  <div className="w-12 h-12 bg-stone-50 rounded-2xl flex items-center justify-center mx-auto mb-4"><ImageIcon className="w-6 h-6 text-stone-200" /></div>
+                  <h4 className="font-bold text-stone-800 text-xs line-clamp-1">{ev.title}</h4>
+                  <p className="text-[9px] text-stone-400 font-black uppercase mt-1 tracking-widest">{ev.galleryImages?.length || 0} Photos</p>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>
