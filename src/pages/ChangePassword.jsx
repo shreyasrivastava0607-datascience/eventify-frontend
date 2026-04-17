@@ -1,232 +1,141 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { ShieldCheck, Eye, EyeOff, AlertCircle, Loader2, CheckCircle2, Circle, ArrowRight, Lock } from 'lucide-react';
+import { ShieldCheck, Lock, Eye, EyeOff, Loader2, ArrowRight, AlertCircle } from 'lucide-react';
 
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || 'https://eventify-backend-jm6t.onrender.com' });
-
-const RULES = [
-  { id: 'length',  label: 'At least 8 characters',       test: (p) => p.length >= 8 },
-  { id: 'upper',   label: 'One uppercase letter (A–Z)',   test: (p) => /[A-Z]/.test(p) },
-  { id: 'lower',   label: 'One lowercase letter (a–z)',   test: (p) => /[a-z]/.test(p) },
-  { id: 'number',  label: 'One number (0–9)',             test: (p) => /\d/.test(p) },
-  { id: 'special', label: 'One special character (!@#…)', test: (p) => /[^A-Za-z0-9]/.test(p) },
-];
-
-function strengthMeta(password) {
-  const passed = RULES.filter((r) => r.test(password)).length;
-  if (passed === 0) return { label: '',       color: 'bg-slate-200', pct: 0   };
-  if (passed <= 2)  return { label: 'Weak',   color: 'bg-red-400',   pct: 25  };
-  if (passed === 3) return { label: 'Fair',   color: 'bg-amber-400', pct: 55  };
-  if (passed === 4) return { label: 'Good',   color: 'bg-blue-400',  pct: 78  };
-  return                   { label: 'Strong', color: 'bg-green-500', pct: 100 };
-}
+// ─── THE LIVE CONNECTION ──────────────────────────────────────────────────
+const api = axios.create({ 
+  baseURL: import.meta.env.VITE_API_URL || 'https://eventify-backend-jm6t.onrender.com' 
+});
 
 export default function ChangePassword() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Get token from the login navigation state or local storage
   const token = location.state?.token || localStorage.getItem('eventify_token');
 
-  const [form, setForm]       = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-  const [show, setShow]       = useState({ current: false, new: false, confirm: false });
-  const [error, setError]     = useState('');
-  const [success, setSuccess] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  const strength = strengthMeta(form.newPassword);
-
-  const handleChange = (e) => setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  const toggleShow = (field) => setShow((prev) => ({ ...prev, [field]: !prev[field] }));
-
-  const handleSubmit = async (e) => {
+  const handleUpdate = async (e) => {
     e.preventDefault();
     setError('');
-    if (!form.currentPassword) {
-      setError('Please enter your current password.'); return;
-    }
-    if (!RULES.every((r) => r.test(form.newPassword))) {
-      setError('Your password does not meet all the requirements below.'); return;
-    }
+
     if (form.newPassword !== form.confirmPassword) {
-      setError('Passwords do not match.'); return;
+      setError("New passwords do not match.");
+      return;
     }
+
+    if (form.newPassword.length < 6) {
+      setError("Security requirement: Password must be at least 6 characters.");
+      return;
+    }
+
     setLoading(true);
     try {
-      await api.patch(
-        '/api/auth/change-password',
-        { currentPassword: form.currentPassword, newPassword: form.newPassword },
+      await api.post('/api/auth/change-password', 
+        { currentPassword: form.currentPassword, newPassword: form.newPassword }, 
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setSuccess(true);
-      const role = localStorage.getItem('eventify_role');
-      setTimeout(() => navigate(role === 'admin' ? '/admin' : '/dashboard', { replace: true }), 2000);
+      
+      alert("Password updated successfully! Please login with your new credentials.");
+      localStorage.clear();
+      navigate('/login');
     } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong. Please try again.');
+      setError(err.response?.data?.message || "Failed to update password. Please check your current password.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (success) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-5">
-            <CheckCircle2 className="w-10 h-10 text-green-500" />
-          </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Password updated!</h2>
-          <p className="text-slate-500 text-sm">Taking you to your dashboard…</p>
-        </div>
-      </div>
-    );
-  }
+  const inputCls = "w-full p-4 pl-12 bg-stone-50 border border-stone-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-900/5 transition-all text-sm font-medium";
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="relative w-full max-w-md">
-        <div className="bg-white border border-slate-200 rounded-3xl shadow-lg overflow-hidden">
-
-          <div className="bg-green-700 px-8 pt-8 pb-10">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-                <Lock className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-white text-xl font-semibold">Security Setup</span>
-            </div>
-            <h1 className="text-white text-2xl font-bold leading-snug">Create your password</h1>
-            <p className="text-green-100 text-sm mt-1.5">First login — set a strong password to continue.</p>
+    <div className="min-h-screen flex items-center justify-center bg-[#f8f7f4] p-4 font-sans">
+      <div className="w-full max-w-md bg-white p-10 rounded-[40px] shadow-2xl border border-stone-200 relative overflow-hidden">
+        {/* Top Decorative Branding Bar */}
+        <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#1e3a5f] via-[#162d4a] to-[#1e3a5f]"></div>
+        
+        <div className="flex flex-col items-center text-center mb-8">
+          <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-4 border border-blue-100">
+            <ShieldCheck className="w-8 h-8 text-[#1e3a5f]" />
           </div>
-
-          <div className="bg-green-700 h-6 relative">
-            <div className="absolute bottom-0 left-0 right-0 h-6 bg-white rounded-tl-[2rem] rounded-tr-[2rem]" />
-          </div>
-
-          <div className="px-8 pb-8 pt-3">
-            {error && (
-              <div className="mb-5 flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-3.5">
-                <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
-                <p className="text-red-700 text-sm">{error}</p>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} noValidate className="space-y-5">
-
-              {/* Current Password */}
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-slate-700" htmlFor="currentPassword">
-                  Current Password
-                </label>
-                <div className="relative">
-                  <input
-                    id="currentPassword" name="currentPassword"
-                    type={show.current ? 'text' : 'password'}
-                    placeholder="Enter your current password"
-                    value={form.currentPassword} onChange={handleChange} disabled={loading}
-                    className="w-full px-4 py-3 pr-11 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/40 focus:border-green-500 disabled:opacity-50"
-                  />
-                  <button type="button" onClick={() => toggleShow('current')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600">
-                    {show.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* New Password */}
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-slate-700" htmlFor="newPassword">
-                  New Password
-                </label>
-                <div className="relative">
-                  <input
-                    id="newPassword" name="newPassword"
-                    type={show.new ? 'text' : 'password'}
-                    placeholder="Create a strong password"
-                    value={form.newPassword} onChange={handleChange} disabled={loading}
-                    className="w-full px-4 py-3 pr-11 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/40 focus:border-green-500 disabled:opacity-50"
-                  />
-                  <button type="button" onClick={() => toggleShow('new')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600">
-                    {show.new ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                {form.newPassword && (
-                  <div className="space-y-1">
-                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full transition-all duration-500 ${strength.color}`}
-                        style={{ width: `${strength.pct}%` }} />
-                    </div>
-                    {strength.label && (
-                      <p className={`text-xs font-medium ${
-                        strength.label === 'Strong' ? 'text-green-600' :
-                        strength.label === 'Good'   ? 'text-blue-500'  :
-                        strength.label === 'Fair'   ? 'text-amber-500' : 'text-red-500'}`}>
-                        {strength.label}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Confirm Password */}
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-slate-700" htmlFor="confirmPassword">
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <input
-                    id="confirmPassword" name="confirmPassword"
-                    type={show.confirm ? 'text' : 'password'}
-                    placeholder="Re-enter your password"
-                    value={form.confirmPassword} onChange={handleChange} disabled={loading}
-                    className="w-full px-4 py-3 pr-11 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/40 focus:border-green-500 disabled:opacity-50"
-                  />
-                  <button type="button" onClick={() => toggleShow('confirm')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600">
-                    {show.confirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                {form.confirmPassword && (
-                  <p className={`text-xs font-medium flex items-center gap-1 ${
-                    form.newPassword === form.confirmPassword ? 'text-green-600' : 'text-red-500'}`}>
-                    {form.newPassword === form.confirmPassword
-                      ? <><CheckCircle2 className="w-3.5 h-3.5" /> Passwords match</>
-                      : <><AlertCircle  className="w-3.5 h-3.5" /> Passwords do not match</>}
-                  </p>
-                )}
-              </div>
-
-              {/* Requirements */}
-              <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
-                  Requirements
-                </p>
-                {RULES.map((rule) => {
-                  const passed = rule.test(form.newPassword);
-                  return (
-                    <div key={rule.id} className="flex items-center gap-2.5 mb-2 last:mb-0">
-                      {passed
-                        ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
-                        : <Circle       className="w-3.5 h-3.5 text-slate-300 shrink-0" />}
-                      <span className={`text-xs ${passed ? 'text-green-700 font-medium' : 'text-slate-400'}`}>
-                        {rule.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <button type="submit" disabled={loading}
-                className="w-full py-3 px-6 rounded-xl bg-green-700 text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-green-800 transition-all duration-200 disabled:opacity-60">
-                {loading
-                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Updating…</>
-                  : <><ShieldCheck className="w-4 h-4" /> Set Password & Continue <ArrowRight className="w-4 h-4" /></>}
-              </button>
-            </form>
-          </div>
+          <h2 className="text-3xl font-bold text-stone-900 tracking-tight" style={{ fontFamily: '"Playfair Display", serif' }}>
+            Secure Your Account
+          </h2>
+          <p className="text-stone-400 text-xs mt-2 font-bold uppercase tracking-widest">Initial Security Setup</p>
         </div>
-        <p className="text-center text-xs text-slate-400 mt-4">
-          © {new Date().getFullYear()} Eventify
-        </p>
+
+        <form onSubmit={handleUpdate} className="space-y-4">
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-100 text-red-700 text-[11px] font-black rounded-2xl flex items-center gap-2 animate-pulse">
+              <AlertCircle className="w-4 h-4" /> {error.toUpperCase()}
+            </div>
+          )}
+
+          <div className="relative">
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-300" />
+            <input 
+              type={showPass ? "text" : "password"} 
+              placeholder="Current (Default) Password" 
+              className={inputCls} 
+              value={form.currentPassword}
+              onChange={e => setForm({...form, currentPassword: e.target.value})}
+              required
+            />
+          </div>
+
+          <div className="relative">
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-300" />
+            <input 
+              type={showPass ? "text" : "password"} 
+              placeholder="New Secure Password" 
+              className={inputCls} 
+              value={form.newPassword}
+              onChange={e => setForm({...form, newPassword: e.target.value})}
+              required
+            />
+          </div>
+
+          <div className="relative">
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-300" />
+            <input 
+              type={showPass ? "text" : "password"} 
+              placeholder="Confirm New Password" 
+              className={inputCls} 
+              value={form.confirmPassword}
+              onChange={e => setForm({...form, confirmPassword: e.target.value})}
+              required
+            />
+            <button 
+              type="button" 
+              onClick={() => setShowPass(!showPass)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 transition-colors"
+            >
+              {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+
+          <button 
+            disabled={loading}
+            className="w-full py-4 mt-4 text-white font-black text-xs rounded-2xl shadow-xl transition-all hover:-translate-y-1 active:scale-[0.98] flex items-center justify-center gap-2 uppercase tracking-widest" 
+            style={{ background: 'linear-gradient(135deg, #1e3a5f, #162d4a)' }}
+          >
+            {loading ? (
+              <Loader2 className="animate-spin w-5 h-5" />
+            ) : (
+              <>Update & Continue <ArrowRight className="w-4 h-4" /></>
+            )}
+          </button>
+        </form>
+
+        <div className="mt-10 pt-6 border-t border-stone-100 text-center">
+          <p className="text-[10px] text-stone-300 font-black uppercase tracking-[0.2em]">
+            Eventify Encryption Verified
+          </p>
+        </div>
       </div>
     </div>
   );
