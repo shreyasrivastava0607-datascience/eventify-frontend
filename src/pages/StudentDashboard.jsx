@@ -89,55 +89,37 @@ function RegisterModal({ event, onClose, onSuccess, user }) {
   // Resolve the registration link once
   const regLink = safeLink(event.registrationLink || event.link);
 
-  const handleRegister = async () => {
-    setLoading(true);
+const handleRegister = async () => {
+  // 1. Open the link immediately if it exists
+  if (regLink) {
+    window.open(regLink, '_blank', 'noopener,noreferrer');
+  }
 
-    /*
-     * FIX: window.open() called AFTER an await is treated as a popup by browsers
-     * and gets blocked. The solution is to open the window SYNCHRONOUSLY before
-     * the async work begins, then set its location once we know the URL — or
-     * simply open a blank tab first and assign the href after the API call.
-     *
-     * We open the tab immediately (synchronous, so no popup blocker triggers),
-     * then either navigate it to the real URL on success or close it on failure.
-     */
-    let newTab = null;
-    if (regLink) {
-      newTab = window.open('', '_blank', 'noopener,noreferrer');
-    }
+  setLoading(true);
 
-    try {
-      await api.post(
-        `/api/events/${event._id}/register`,
-        { name: user.name, rollNumber: user.rollNumber },
-        getAuthHeader()
-      );
+  try {
+    // 2. Perform the database registration in the background
+    await api.post(
+      `/api/events/${event._id}/register`,
+      { name: user.name, rollNumber: user.rollNumber },
+      getAuthHeader()
+    );
 
+    onSuccess && onSuccess(event._id);
+    setDone(true);
+  } catch (err) {
+    const msg = (err.response?.data?.message || '').toLowerCase();
+    // If they are already registered, still show the "Done" state
+    if (msg.includes('already')) {
       onSuccess && onSuccess(event._id);
       setDone(true);
-
-      // Navigate the already-open tab to the real URL
-      if (newTab && regLink) {
-        newTab.location.href = regLink;
-      }
-    } catch (err) {
-      const msg = (err.response?.data?.message || '').toLowerCase();
-      if (msg.includes('already')) {
-        onSuccess && onSuccess(event._id);
-        setDone(true);
-        if (newTab && regLink) {
-          newTab.location.href = regLink;
-        }
-      } else {
-        // Close the blank tab since registration failed
-        if (newTab) newTab.close();
-        alert('Registration failed. Please try again.');
-      }
-    } finally {
-      setLoading(false);
+    } else {
+      alert('Local registration failed, but the form should have opened.');
     }
-  };
-
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onClick={onClose}>
       <div
