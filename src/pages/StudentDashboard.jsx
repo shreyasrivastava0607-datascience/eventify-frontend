@@ -7,7 +7,7 @@ import {
   ExternalLink, GraduationCap, Menu, Sparkles, Cpu, Music2
 } from 'lucide-react';
 
-// ─── THE FIX: Pointing to your live Render Backend ───────────────────────────
+// ─── THE CONNECTION FIX ─────────────────────────────────────────────────────
 const api = axios.create({ 
   baseURL: import.meta.env.VITE_API_URL || 'https://eventify-backend-jm6t.onrender.com' 
 });
@@ -54,9 +54,7 @@ function GalleryModal({ event, onClose }) {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {event.galleryImages.map((url, i) => (
                 <div key={i} className="aspect-square rounded-2xl overflow-hidden bg-stone-100 group cursor-pointer">
-                  <img src={url} alt={`Gallery ${i + 1}`}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    onError={e => { e.target.style.display = 'none'; }} />
+                  <img src={url} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onError={e => { e.target.style.display = 'none'; }} />
                 </div>
               ))}
             </div>
@@ -72,8 +70,7 @@ function TypeBadge({ type }) {
   if (!type) return null;
   const isTech = type === 'Tech Event';
   return (
-    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full
-      ${isTech ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${isTech ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
       {isTech ? <Cpu className="w-3 h-3" /> : <Music2 className="w-3 h-3" />}
       {type}
     </span>
@@ -84,112 +81,30 @@ function TypeBadge({ type }) {
 function UpcomingCard({ event }) {
   const date = new Date(event.date);
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const hasRegLink = !!event.registrationLink;
-
   return (
     <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 flex flex-col">
-      {event.brochureURL && (
-        <div className="h-40 overflow-hidden">
-          <img src={event.brochureURL} alt={event.title}
-            className="w-full h-full object-cover"
-            onError={e => { e.target.parentElement.style.display = 'none'; }} />
-        </div>
-      )}
-
-      <div className="px-5 py-4 flex items-center justify-between"
-        style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #162d4a 100%)' }}>
+      <div className="px-5 py-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #162d4a 100%)' }}>
         <div className="flex items-center gap-3">
           <div className="bg-white/15 rounded-xl px-3 py-2 text-center min-w-[52px]">
             <p className="text-white/70 text-xs">{monthNames[date.getMonth()]}</p>
             <p className="text-white text-xl font-bold leading-none">{date.getDate()}</p>
           </div>
-          <div>
-            <h3 className="text-white font-bold text-base leading-snug line-clamp-1">{event.title}</h3>
-            {event.time && (
-              <div className="flex items-center gap-1 mt-0.5">
-                <Clock className="w-3 h-3 text-blue-300" />
-                <span className="text-blue-200 text-xs">{event.time}</span>
-              </div>
-            )}
-          </div>
+          <div><h3 className="text-white font-bold text-base leading-snug line-clamp-1">{event.title}</h3></div>
         </div>
       </div>
-
       <div className="p-5 flex flex-col flex-1">
-        <div className="flex items-center gap-2 mb-3">
-          <TypeBadge type={event.eventType} />
-        </div>
-
-        {event.description && <p className="text-stone-600 text-sm leading-relaxed mb-4 line-clamp-2">{event.description}</p>}
-
-        <div className="space-y-2 mb-4">
-          <div className="flex items-center gap-2 text-stone-500 text-xs">
-            <MapPin className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-            <span>{event.venue || 'TBA'}</span>
-          </div>
-          {event.maxParticipants && (
-            <div className="flex items-center gap-2 text-stone-500 text-xs">
-              <Users className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-              <span>{event.registeredStudents?.length || 0} / {event.maxParticipants} participants</span>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-auto">
-          {hasRegLink ? (
-            <a href={event.registrationLink} target="_blank" rel="noreferrer"
-              className="w-full py-2.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 hover:shadow-lg"
-              style={{ background: 'linear-gradient(135deg, #1e3a5f, #162d4a)' }}>
-              Register Now <ExternalLink className="w-4 h-4" />
-            </a>
-          ) : (
-            <div className="w-full py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm font-semibold flex items-center justify-center gap-2">
-              <Clock className="w-4 h-4" />
-              Registrations will open soon
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── Past Event Card ── */
-function PastCard({ event, onViewGallery }) {
-  const date = new Date(event.date);
-  return (
-    <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm flex flex-col opacity-90 hover:opacity-100 transition-all duration-200">
-      <div className="h-36 bg-gradient-to-br from-stone-100 to-stone-200 relative overflow-hidden">
-        {event.galleryImages?.[0] || event.brochureURL ? (
-          <img src={event.galleryImages?.[0] || event.brochureURL} alt={event.title} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <CalendarDays className="w-10 h-10 text-stone-300" />
-          </div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-        <div className="absolute bottom-3 left-4 text-white">
-          <p className="text-xs opacity-75">{date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-        </div>
-        <div className="absolute top-3 right-3 bg-stone-700/80 text-white text-xs px-2.5 py-1 rounded-full font-medium backdrop-blur-sm">
-          Completed
-        </div>
-      </div>
-      <div className="p-4 flex flex-col flex-1">
         <TypeBadge type={event.eventType} />
-        <h3 className="font-bold text-stone-800 text-sm mt-2 mb-1 line-clamp-1">{event.title}</h3>
-        <div className="flex items-center gap-1.5 text-stone-400 text-xs mb-3">
-          <MapPin className="w-3 h-3" /> {event.venue || 'TBA'}
+        <p className="text-stone-600 text-sm leading-relaxed my-3 line-clamp-2">{event.description}</p>
+        <div className="space-y-2 mb-4 text-xs text-stone-500">
+          <div className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5" /><span>{event.venue || 'TBA'}</span></div>
+          <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5" /><span>{event.time || 'All Day'}</span></div>
         </div>
         <div className="mt-auto">
-          <button onClick={() => onViewGallery(event)}
-            className="w-full py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all">
-            <ImageIcon className="w-3.5 h-3.5" />
-            View Gallery
-            {event.galleryImages?.length > 0 && (
-              <span className="bg-stone-300 text-stone-600 text-xs px-1.5 py-0.5 rounded-full ml-1">{event.galleryImages.length}</span>
-            )}
-          </button>
+          {event.registrationLink ? (
+            <a href={event.registrationLink} target="_blank" rel="noreferrer" className="w-full py-2.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2" style={{ background: 'linear-gradient(135deg, #1e3a5f, #162d4a)' }}>Register <ExternalLink className="w-4 h-4" /></a>
+          ) : (
+            <div className="w-full py-2.5 rounded-xl bg-amber-50 text-amber-700 text-sm font-semibold text-center">Registrations Coming Soon</div>
+          )}
         </div>
       </div>
     </div>
@@ -199,161 +114,56 @@ function PastCard({ event, onViewGallery }) {
 /* ── Main Dashboard ── */
 export default function StudentDashboard() {
   const navigate = useNavigate();
-  const [upcoming, setUpcoming]    = useState([]);
-  const [past, setPast]            = useState([]);
-  const [loading, setLoading]      = useState(true);
-  const [toast, setToast]          = useState(null);
+  const [upcoming, setUpcoming] = useState([]);
+  const [past, setPast] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState(null);
   const [galleryEvent, setGallery] = useState(null);
-  const [menuOpen, setMenuOpen]    = useState(false);
-  const [filter, setFilter]        = useState('All');
+  const [filter, setFilter] = useState('All');
 
-  const user = (() => { try { return JSON.parse(localStorage.getItem('eventify_user') || '{}'); } catch { return {}; } })();
+  const user = JSON.parse(localStorage.getItem('eventify_user') || '{}');
   const showToast = (type, message) => { setToast({ type, message }); setTimeout(() => setToast(null), 4000); };
 
   const fetchEvents = useCallback(async () => {
-    setLoading(true);
     try {
       const { data } = await api.get('/api/events', getAuthHeader());
-      const all = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+      const all = data.data || data;
       setUpcoming(all.filter(e => e.status === 'upcoming'));
       setPast(all.filter(e => e.status === 'completed'));
-    } catch {
-      showToast('error', 'Failed to load events. Please refresh.');
-    } finally {
-      setLoading(false);
-    }
+    } catch { showToast('error', 'Failed to load events.'); }
+    finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
-  const filteredUpcoming = filter === 'All' ? upcoming : upcoming.filter(e => e.eventType === f);
+  const filteredUpcoming = filter === 'All' ? upcoming : upcoming.filter(e => e.eventType === filter);
   const handleLogout = () => { localStorage.clear(); navigate('/login'); };
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: '#f8f7f4', fontFamily: '"DM Sans", sans-serif' }}>
+    <div className="min-h-screen bg-stone-50 font-sans">
       <Toast toast={toast} onClose={() => setToast(null)} />
       <GalleryModal event={galleryEvent} onClose={() => setGallery(null)} />
 
-      {/* Navbar */}
-      <nav className="text-white px-6 py-4 flex items-center justify-between shadow-lg sticky top-0 z-30"
-        style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #162d4a 100%)' }}>
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center">
-            <GraduationCap className="w-4 h-4" />
-          </div>
-          <div>
-            <span className="font-bold text-base tracking-wide" style={{ fontFamily: '"Playfair Display", serif' }}>Eventify</span>
-            <span className="ml-2 text-xs bg-white/15 px-2 py-0.5 rounded-full">Student</span>
-          </div>
-        </div>
-        <div className="hidden sm:flex items-center gap-4">
-          <span className="text-sm text-blue-200">Hello, {user.name || 'Student'} 👋</span>
-          <button onClick={handleLogout}
-            className="flex items-center gap-1.5 text-sm bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-all">
-            <LogOut className="w-3.5 h-3.5" /> Logout
-          </button>
-        </div>
-        <button className="sm:hidden" onClick={() => setMenuOpen(v => !v)}><Menu className="w-5 h-5" /></button>
+      <nav className="text-white px-6 py-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #162d4a 100%)' }}>
+        <div className="flex items-center gap-3"><GraduationCap className="w-6 h-6" /><span className="font-bold text-xl" style={{ fontFamily: '"Playfair Display", serif' }}>Eventify</span></div>
+        <button onClick={handleLogout} className="bg-white/10 p-2 rounded-lg"><LogOut className="w-4 h-4" /></button>
       </nav>
 
-      {menuOpen && (
-        <div className="sm:hidden text-white px-6 py-3 flex flex-col gap-2"
-          style={{ background: 'linear-gradient(135deg, #162d4a, #0f2035)' }}>
-          <span className="text-sm text-blue-200">Hello, {user.name || 'Student'} 👋</span>
-          <button onClick={handleLogout} className="flex items-center gap-1.5 text-sm w-fit">
-            <LogOut className="w-3.5 h-3.5" /> Logout
-          </button>
-        </div>
-      )}
-
       <div className="max-w-6xl mx-auto px-4 py-8">
-
-        {/* Hero */}
-        <div className="rounded-2xl px-6 py-6 mb-8 flex items-center justify-between shadow-lg"
-          style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #162d4a 100%)' }}>
+        <div className="rounded-2xl px-6 py-6 mb-8 flex items-center justify-between shadow-lg text-white" style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #162d4a 100%)' }}>
           <div>
-            <h1 className="text-white text-xl font-bold" style={{ fontFamily: '"Playfair Display", serif' }}>
-              Hello, {user.name || 'Student'}! 👋
-            </h1>
-            <p className="text-blue-200 text-sm mt-1">
-              {upcoming.length > 0
-                ? `${upcoming.length} upcoming event${upcoming.length > 1 ? 's' : ''} tailored for you.`
-                : 'No upcoming events right now. Check back soon!'}
-            </p>
-            <div className="flex items-center gap-2 mt-2 text-xs text-blue-300">
-              <span className="bg-white/10 px-2 py-0.5 rounded-full">{user.department || '—'}</span>
-              <span className="bg-white/10 px-2 py-0.5 rounded-full">Year {user.year || '—'}</span>
-            </div>
+            <h1 className="text-xl font-bold">Hello, {user.name || 'Student'}! 👋</h1>
+            <p className="text-blue-200 text-sm mt-1">{upcoming.length} events matching your profile.</p>
           </div>
-          <div className="hidden sm:block">
-            <Sparkles className="w-10 h-10 text-blue-300/50" />
-          </div>
+          <Sparkles className="w-10 h-10 text-blue-300/30" />
         </div>
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-900" />
-            <p className="text-stone-500 text-sm">Loading your events…</p>
-          </div>
+          <div className="text-center py-24"><Loader2 className="animate-spin mx-auto w-8 h-8 text-blue-900" /></div>
         ) : (
-          <>
-            {/* Upcoming Events */}
-            <section className="mb-10">
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="w-5 h-5 text-blue-900" />
-                  <h2 className="text-lg font-bold text-stone-800" style={{ fontFamily: '"Playfair Display", serif' }}>Upcoming Events</h2>
-                  {upcoming.length > 0 && (
-                    <span className="text-white text-xs font-bold px-2 py-0.5 rounded-full"
-                      style={{ background: 'linear-gradient(135deg, #1e3a5f, #162d4a)' }}>{upcoming.length}</span>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  {['All', 'Tech Event', 'Cultural Event'].map(f => (
-                    <button key={f} onClick={() => setFilter(f)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all
-                        ${filter === f ? 'text-white border-transparent shadow-sm' : 'bg-white border-stone-200 text-stone-600 hover:border-stone-300'}`}
-                      style={filter === f ? { background: 'linear-gradient(135deg, #1e3a5f, #162d4a)' } : {}}>
-                      {f}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {filteredUpcoming.length === 0 ? (
-                <div className="bg-white border border-stone-200 rounded-2xl py-16 text-center">
-                  <CalendarDays className="w-10 h-10 text-stone-300 mx-auto mb-3" />
-                  <p className="text-stone-500 text-sm font-medium">No upcoming events for you right now.</p>
-                  <p className="text-stone-400 text-xs mt-1">Events matching your department & year will appear here.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {filteredUpcoming.map(ev => <UpcomingCard key={ev._id} event={ev} />)}
-                </div>
-              )}
-            </section>
-
-            {/* Past Events */}
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <ImageIcon className="w-5 h-5 text-stone-500" />
-                <h2 className="text-lg font-bold text-stone-800" style={{ fontFamily: '"Playfair Display", serif' }}>Past Events</h2>
-                {past.length > 0 && (
-                  <span className="bg-stone-200 text-stone-600 text-xs font-bold px-2 py-0.5 rounded-full">{past.length}</span>
-                )}
-              </div>
-
-              {past.length === 0 ? (
-                <div className="bg-white border border-stone-200 rounded-2xl py-12 text-center">
-                  <p className="text-stone-400 text-sm">No past events yet.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {past.map(ev => <PastCard key={ev._id} event={ev} onViewGallery={setGallery} />)}
-                </div>
-              )}
-            </section>
-          </>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredUpcoming.map(ev => <UpcomingCard key={ev._id} event={ev} />)}
+          </div>
         )}
       </div>
     </div>
