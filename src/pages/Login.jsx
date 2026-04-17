@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { GraduationCap, Eye, EyeOff, AlertCircle, Loader2, ArrowRight, Calendar, Users, Sparkles } from 'lucide-react';
 
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000' });
+// ─── THE FIX: Pointing directly to your Render Backend ───────────────────────
+const api = axios.create({ 
+  baseURL: import.meta.env.VITE_API_URL || 'https://eventify-backend-jm6t.onrender.com' 
+});
 
 /* ── Welcome Splash ── */
 function WelcomeSplash({ onDone }) {
