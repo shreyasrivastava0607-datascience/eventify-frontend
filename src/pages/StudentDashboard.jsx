@@ -86,40 +86,43 @@ function RegisterModal({ event, onClose, onSuccess, user }) {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
-  // Resolve the registration link once
-  const regLink = safeLink(event.registrationLink || event.link);
+  // FIX: use event.formLink (matches backend model field name)
+  const regLink = safeLink(event.formLink);
 
-const handleRegister = async () => {
-  // 1. Open the link immediately if it exists
-  if (regLink) {
-    window.open(regLink, '_blank', 'noopener,noreferrer');
-  }
+  const handleRegister = async () => {
+    setLoading(true);
+    try {
+      // 1. Perform the database registration first
+      await api.post(
+        `/api/events/${event._id}/register`,
+        { name: user.name, rollNumber: user.rollNumber },
+        getAuthHeader()
+      );
 
-  setLoading(true);
-
-  try {
-    // 2. Perform the database registration in the background
-    await api.post(
-      `/api/events/${event._id}/register`,
-      { name: user.name, rollNumber: user.rollNumber },
-      getAuthHeader()
-    );
-
-    onSuccess && onSuccess(event._id);
-    setDone(true);
-  } catch (err) {
-    const msg = (err.response?.data?.message || '').toLowerCase();
-    // If they are already registered, still show the "Done" state
-    if (msg.includes('already')) {
       onSuccess && onSuccess(event._id);
       setDone(true);
-    } else {
-      alert('Local registration failed, but the form should have opened.');
+
+      // 2. Open the Google Form AFTER successful registration (if link exists)
+      if (regLink) {
+        window.open(regLink, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err) {
+      const msg = (err.response?.data?.message || '').toLowerCase();
+      // If already registered, still show the "Done" state
+      if (msg.includes('already')) {
+        onSuccess && onSuccess(event._id);
+        setDone(true);
+        if (regLink) {
+          window.open(regLink, '_blank', 'noopener,noreferrer');
+        }
+      } else {
+        alert('Registration failed. Please try again.');
+      }
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onClick={onClose}>
       <div
@@ -259,12 +262,11 @@ export default function StudentDashboard() {
           return eventMatchesStudent(ev, user);
         });
 
+        // FIX: registeredStudents from /api/events are ObjectIds, not populated objects.
+        // Use the isRegistered flag set by the backend instead.
         const myIds = new Set();
         all.forEach(ev => {
-          const found = (ev.registeredStudents || []).some(
-            s => s.rollNumber === user.rollNumber
-          );
-          if (found) myIds.add(ev._id);
+          if (ev.isRegistered) myIds.add(ev._id);
         });
 
         setRegisteredIds(myIds);
@@ -396,8 +398,9 @@ export default function StudentDashboard() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 mb-28">
                 {filtered.map(ev => {
-                  const regLink = safeLink(ev.registrationLink || ev.link);
-                  const actualImage = ev.brochureURL || ev.image;
+                  // FIX: use ev.formLink (backend field name)
+                  const regLink = safeLink(ev.formLink);
+                  const actualImage = ev.imageURL;
                   const isRegistered = registeredIds.has(ev._id);
 
                   return (

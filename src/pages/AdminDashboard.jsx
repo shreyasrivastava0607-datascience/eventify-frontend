@@ -56,7 +56,7 @@ function CreateEventForm({ showToast }) {
   const [form, setForm] = useState({
     title: '', description: '', venue: '', date: '', time: '',
     targetDepartments: [], targetYears: [], eventType: '',
-    registrationLink: '', brochureURL: ''
+    formLink: '', imageURL: ''
   });
   const [loading, setLoading] = useState(false);
 
@@ -68,7 +68,6 @@ function CreateEventForm({ showToast }) {
 
     setLoading(true);
     try {
-      // Normalise: targetYears must be numbers, targetDepartments strings
       const eventData = {
         title: form.title,
         description: form.description,
@@ -76,13 +75,11 @@ function CreateEventForm({ showToast }) {
         date: form.date,
         time: form.time,
         eventType: form.eventType,
-        registrationLink: form.registrationLink.trim(),
-        brochureURL: form.brochureURL.trim(),
-        // Keep both field names for compatibility
-        link: form.registrationLink.trim(),
-        image: form.brochureURL.trim(),
-        targetDepartments: form.targetDepartments,                   // array of strings
-        targetYears: form.targetYears.map(Number),                   // array of numbers
+        // FIX: send as formLink to match the backend model field name
+        formLink: form.formLink.trim(),
+        imageURL: form.imageURL.trim(),
+        targetDepartments: form.targetDepartments,
+        targetYears: form.targetYears.map(Number),
         status: 'upcoming',
       };
       await api.post('/api/events', eventData, getAuthHeader());
@@ -90,7 +87,7 @@ function CreateEventForm({ showToast }) {
       setForm({
         title: '', description: '', venue: '', date: '', time: '',
         targetDepartments: [], targetYears: [], eventType: '',
-        registrationLink: '', brochureURL: ''
+        formLink: '', imageURL: ''
       });
     } catch {
       showToast('error', 'Failed to publish event. Check connection.');
@@ -134,8 +131,8 @@ function CreateEventForm({ showToast }) {
             <input
               placeholder="Registration Link (Google Form URL)"
               className={`pl-10 ${inputCls}`}
-              value={form.registrationLink}
-              onChange={e => setForm({ ...form, registrationLink: e.target.value })}
+              value={form.formLink}
+              onChange={e => setForm({ ...form, formLink: e.target.value })}
             />
           </div>
 
@@ -145,18 +142,18 @@ function CreateEventForm({ showToast }) {
             <input
               placeholder="Brochure Image URL (Direct Link)"
               className={`pl-10 ${inputCls}`}
-              value={form.brochureURL}
-              onChange={e => setForm({ ...form, brochureURL: e.target.value })}
+              value={form.imageURL}
+              onChange={e => setForm({ ...form, imageURL: e.target.value })}
             />
           </div>
         </div>
 
         {/* Preview link if provided */}
-        {form.registrationLink && (
+        {form.formLink && (
           <div className="bg-blue-50 border border-blue-200 rounded-2xl px-5 py-3 flex items-center gap-3">
             <Link2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
             <p className="text-blue-700 text-xs font-bold truncate">
-              Registration link saved: {form.registrationLink}
+              Registration link saved: {form.formLink}
             </p>
           </div>
         )}
@@ -165,7 +162,6 @@ function CreateEventForm({ showToast }) {
           <p className="text-[11px] font-black text-stone-500 uppercase tracking-widest flex items-center gap-2">
             🎯 Smart Clash Configuration — Only matching students will see this event
           </p>
-          {/* targetDepartments uses strings; targetYears uses string keys mapped to numbers on submit */}
           <CheckboxGroup
             label="Target Departments"
             options={DEPARTMENTS}
@@ -336,7 +332,7 @@ function ManageEvents({ showToast }) {
                   <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${ev.status === 'upcoming' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
                     {ev.status}
                   </span>
-                  {(ev.registrationLink || ev.link) && (
+                  {ev.formLink && (
                     <span className="text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest bg-purple-50 text-purple-600">
                       Has Reg. Link
                     </span>
@@ -385,12 +381,36 @@ function RegistrationsView() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState(null);
+  // FIX: store populated student data per event fetched from /registrations endpoint
+  const [studentMap, setStudentMap] = useState({});
+  const [loadingStudents, setLoadingStudents] = useState({});
 
   useEffect(() => {
     api.get('/api/events', getAuthHeader())
       .then(r => setEvents(r.data.data || r.data))
       .finally(() => setLoading(false));
   }, []);
+
+  // FIX: when an event is expanded, fetch populated registrations for that event
+  const handleExpand = async (eventId) => {
+    if (expanded === eventId) {
+      setExpanded(null);
+      return;
+    }
+    setExpanded(eventId);
+    // Only fetch if we haven't already
+    if (studentMap[eventId]) return;
+
+    setLoadingStudents(prev => ({ ...prev, [eventId]: true }));
+    try {
+      const r = await api.get(`/api/events/${eventId}/registrations`, getAuthHeader());
+      setStudentMap(prev => ({ ...prev, [eventId]: r.data.data || [] }));
+    } catch {
+      setStudentMap(prev => ({ ...prev, [eventId]: [] }));
+    } finally {
+      setLoadingStudents(prev => ({ ...prev, [eventId]: false }));
+    }
+  };
 
   if (loading) return <div className="py-20 flex justify-center"><Loader2 className="animate-spin text-blue-900 w-10 h-10" /></div>;
 
@@ -412,19 +432,22 @@ function RegistrationsView() {
 
       <div className="space-y-4">
         {events.map(ev => {
-          const students = ev.registeredStudents || [];
+          const isOpen = expanded === ev._id;
+          const students = studentMap[ev._id] || [];
+          const isFetchingStudents = loadingStudents[ev._id];
+          const rsvpCount = ev.registeredStudents?.length || 0;
+
           const filteredStudents = search
             ? students.filter(s =>
                 s.name?.toLowerCase().includes(search.toLowerCase()) ||
                 s.rollNumber?.toLowerCase().includes(search.toLowerCase())
               )
             : students;
-          const isOpen = expanded === ev._id;
 
           return (
             <div key={ev._id} className="bg-white border border-stone-200 rounded-[32px] shadow-sm overflow-hidden">
               <button
-                onClick={() => setExpanded(isOpen ? null : ev._id)}
+                onClick={() => handleExpand(ev._id)}
                 className="w-full flex items-center justify-between p-6 hover:bg-stone-50 transition-all text-left"
               >
                 <div>
@@ -435,7 +458,7 @@ function RegistrationsView() {
                 </div>
                 <div className="flex items-center gap-4">
                   <span className="flex items-center gap-2 bg-blue-600 text-white text-[10px] font-black px-4 py-1.5 rounded-full uppercase">
-                    <Users className="w-3.5 h-3.5" /> {students.length} RSVPs
+                    <Users className="w-3.5 h-3.5" /> {rsvpCount} RSVPs
                   </span>
                   <Eye className={`w-5 h-5 text-stone-300 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
                 </div>
@@ -443,7 +466,11 @@ function RegistrationsView() {
 
               {isOpen && (
                 <div className="border-t border-stone-100">
-                  {filteredStudents.length > 0 ? (
+                  {isFetchingStudents ? (
+                    <div className="py-10 flex justify-center">
+                      <Loader2 className="animate-spin text-blue-900 w-6 h-6" />
+                    </div>
+                  ) : filteredStudents.length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs text-left">
                         <thead className="bg-stone-50 text-stone-400 font-black uppercase tracking-widest border-b border-stone-100">
@@ -451,14 +478,18 @@ function RegistrationsView() {
                             <th className="px-8 py-4">#</th>
                             <th className="px-8 py-4">Student Name</th>
                             <th className="px-8 py-4">Roll Number</th>
+                            <th className="px-8 py-4">Department</th>
+                            <th className="px-8 py-4">Year</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-stone-50">
                           {filteredStudents.map((s, i) => (
                             <tr key={i} className="hover:bg-stone-50 transition-colors">
                               <td className="px-8 py-4 text-stone-300 font-bold">{i + 1}</td>
-                              <td className="px-8 py-4 font-bold text-stone-800">{s.name}</td>
-                              <td className="px-8 py-4 font-mono text-stone-500">{s.rollNumber}</td>
+                              <td className="px-8 py-4 font-bold text-stone-800">{s.name || '—'}</td>
+                              <td className="px-8 py-4 font-mono text-stone-500">{s.rollNumber || '—'}</td>
+                              <td className="px-8 py-4 text-stone-500">{s.department || '—'}</td>
+                              <td className="px-8 py-4 text-stone-500">{s.year ? `Year ${s.year}` : '—'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -490,7 +521,6 @@ function AddUserForm({ showToast }) {
     if (!form.name || !form.rollNumber || !form.department || !form.year) return showToast('error', 'All fields required!');
     setLoading(true);
     try {
-      // Default password pattern: FirstName@123 (capitalised)
       const first = form.name.trim().split(' ')[0];
       const pass = first.charAt(0).toUpperCase() + first.slice(1).toLowerCase() + '@123';
       await api.post('/api/auth/create-student', { ...form, year: Number(form.year) }, getAuthHeader());
